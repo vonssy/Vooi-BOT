@@ -1,7 +1,9 @@
 # Vooi App BOT
-Vooi App BOT - `Added Soon`
+Vooi App BOT
 
 Register Here : [Vooi App](https://t.me/VooiAppBot/vooi?startapp=frenIDDYR2rnq)
+
+Telegram Channel: [Vonssy - Code](https://t.me/vonssy_code)
 
 ## Fitur
 
