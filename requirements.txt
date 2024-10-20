@@ -1,0 +1,4 @@
+cloudscraper
+requests
+colorama
+pytz
