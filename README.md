@@ -8,7 +8,7 @@ Telegram Channel: [Vonssy - Code](https://t.me/vonssy_code)
 ## Fitur
 
   - Auto Get Account Information
-  - Auto Claim Refferal
+  - Auto Claim Refferal `[Removed]`
   - Auto Start and Claim Autotrade
   - Auto Play Tap Tap [y/n]
   - Auto Complete Task

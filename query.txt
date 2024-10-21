@@ -1,2 +1,1 @@
-query_id=
-user=
+user=%7B%22id%22%3A7143283584%2C%22first_name%22%3A%22Vv%22%2C%22last_name%22%3A%22%F0%9F%8C%B1SEED%22%2C%22username%22%3A%22Anoraks_uneducate%22%2C%22language_code%22%3A%22en%22%2C%22allows_write_to_pm%22%3Atrue%7D&chat_instance=-603146167774095385&chat_type=private&start_param=frenIDwrzNOr8&auth_date=1729505953&hash=4ae42876c743369f5cd14ad372a9ec72d8c695e06ae2b84aa336ff4a2b2a68d7

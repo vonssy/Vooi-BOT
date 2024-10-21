@@ -85,12 +85,16 @@ class VooiApp:
         url = 'https://api-tg.vooi.io/api/frens/claim'
         self.headers.update({
             'Authorization': f'Bearer {token}',
+            'Content-Length': '0',
             'Content-Type': 'application/json'
         })
 
         response = self.scraper.post(url, headers=self.headers)
-        if response.status_code == 201:
-            return response.json()
+        if response.status_code in [200, 201]:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                return None
         else:
             return None
         
@@ -102,8 +106,11 @@ class VooiApp:
         })
 
         response = self.scraper.get(url, headers=self.headers)
-        if response.status_code == 200:
-            return response.json()
+        if response.status_code in [200, 201]:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                return None
         else:
             return None
         
@@ -206,7 +213,7 @@ class VooiApp:
         
     def question(self):
         while True:
-            tap_tap = input("Play Tap Tap Game?? [y/n] -> ").strip().lower()
+            tap_tap = input("Play Tap Tap Game? [y/n] -> ").strip().lower()
             if tap_tap in ["y", "n"]:
                 tap_tap = tap_tap == "y"
                 break
@@ -245,53 +252,52 @@ class VooiApp:
                     f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                 )
 
-                frens = self.check_frens(token)
-                if frens:
-                    now = datetime.utcnow().replace(tzinfo=timezone.utc)
-                    next_claim = datetime.fromisoformat(frens['nextDateToClaim'].replace("Z", "+00:00"))
-                    next_claim_wib = next_claim.astimezone(wib).strftime('%x %X %Z')
+                # frens = self.check_frens(token)
+                # if frens:
+                #     now = datetime.utcnow().replace(tzinfo=timezone.utc)
+                #     next_claim = datetime.fromisoformat(frens['nextDateToClaim'].replace("Z", "+00:00"))
+                #     next_claim_wib = next_claim.astimezone(wib).strftime('%x %X %Z')
 
-                    reward = float(frens['totalProfit'])
-                    if reward > 0:
-                        if now > next_claim:
-                            claim = self.claim_frens(token)
-                            if claim:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                                    f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {claim['profit']} VT {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                                )
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                                )
-                        else:
-                            self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                                f"{Fore.YELLOW+Style.BRIGHT} Not Time to Claim {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Next Claim at{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {next_claim_wib} {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                            )
-                    else:
-                        self.log(
-                            f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT} No Profit to Claim {Style.RESET_ALL}"
-                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                        )
-                else:
-                    self.log(
-                        f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                    )
+                #     reward = float(frens['totalProfit'])
+                #     if reward > 0:
+                #         if now > next_claim:
+                #             claim = self.claim_frens(token)
+                #             if claim is not None:
+                #                 self.log(
+                #                     f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
+                #                     f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
+                #                     f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
+                #                     f"{Fore.WHITE+Style.BRIGHT} {reward} VT {Style.RESET_ALL}"
+                #                     f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                #                 )
+                #             else:
+                #                 self.log(
+                #                     f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
+                #                     f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
+                #                     f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                #                 )
+                #         else:
+                #             self.log(
+                #                 f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
+                #                 f"{Fore.YELLOW+Style.BRIGHT} Not Time to Claim {Style.RESET_ALL}"
+                #                 f"{Fore.MAGENTA+Style.BRIGHT}] [ Next Claim at{Style.RESET_ALL}"
+                #                 f"{Fore.WHITE+Style.BRIGHT} {next_claim_wib} {Style.RESET_ALL}"
+                #                 f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                #             )
+                #     else:
+                #         self.log(
+                #             f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
+                #             f"{Fore.YELLOW+Style.BRIGHT} No Profit to Claim {Style.RESET_ALL}"
+                #             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                #         )
+                # else:
+                #     self.log(
+                #         f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
+                #         f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
+                #         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                #     )
 
                 autotrade = self.check_autotrade(token)
-
                 if not autotrade:
                     start = self.start_autotrade(token)
                     if start:
