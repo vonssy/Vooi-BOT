@@ -18,6 +18,7 @@ class VooiApp:
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
             'Host': 'api-tg.vooi.io',
             'Origin': 'https://app.tg.vooi.io',
             'Pragma': 'no-cache',
