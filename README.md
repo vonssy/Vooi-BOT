@@ -1,7 +1,7 @@
 # Vooi App BOT
 Vooi App BOT
 
-Register Here : [Vooi App](https://t.me/VooiAppBot/vooi?startapp=frenIDDYR2rnq)
+Register Here : [Vooi App](https://t.me/VooiAppBot/vooi?startapp=frenID7NYg1xA)
 
 Telegram Channel: [Vonssy - Code](https://t.me/vonssy_code)
 
