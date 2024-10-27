@@ -475,7 +475,6 @@ class VooiApp:
                                 f"{Fore.RED+Style.BRIGHT} Isn't Completed {Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                             )
-                        time.sleep(3)
 
                     else:
                         for game in itertools.count(1):
