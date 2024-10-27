@@ -238,17 +238,19 @@ class VooiApp:
     def process_query(self, query: str, tap_tap: bool, choose: int):
         try:
             data, token = self.login(query)
-
             if data:
+                money = float(data['balances']['virt_money'])
+                points = float(data['balances']['virt_points'])
                 self.log(
                     f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
                     f"{Fore.WHITE+Style.BRIGHT} {data['name']} {Style.RESET_ALL}"
                     f"{Fore.MAGENTA+Style.BRIGHT}] [ Money{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {data['balances']['virt_money']} Virtual USD {Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} {money:.2f} Virtual USD {Style.RESET_ALL}"
                     f"{Fore.MAGENTA+Style.BRIGHT}] [ Points{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {data['balances']['virt_points']} VT {Style.RESET_ALL}"
+                    f"{Fore.WHITE+Style.BRIGHT} {points:.2f} VT {Style.RESET_ALL}"
                     f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                 )
+                time.sleep(3)
 
                 frens = self.check_frens(token)
                 if frens:
@@ -278,7 +280,7 @@ class VooiApp:
                             self.log(
                                 f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
                                 f"{Fore.YELLOW+Style.BRIGHT} Not Time to Claim {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Next Claim at{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Claim at{Style.RESET_ALL}"
                                 f"{Fore.WHITE+Style.BRIGHT} {next_claim_wib} {Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                             )
@@ -294,6 +296,7 @@ class VooiApp:
                         f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
                         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                     )
+                time.sleep(3)
 
                 autotrade = self.check_autotrade(token)
                 if not autotrade:
@@ -304,7 +307,7 @@ class VooiApp:
                             f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
-
+                    time.sleep(3)
                     autotrade = self.check_autotrade(token)
 
                 if autotrade:
@@ -336,6 +339,7 @@ class VooiApp:
                             f"{Fore.WHITE+Style.BRIGHT} {wib_time} {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
+                    time.sleep(3)
 
                     start = self.start_autotrade(token)
                     if start:
@@ -352,6 +356,7 @@ class VooiApp:
                             f"{Fore.YELLOW+Style.BRIGHT} Is Already Started {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
+                    time.sleep(3)
 
                 tasks = self.get_tasks(token)
                 if tasks:
@@ -378,7 +383,7 @@ class VooiApp:
                                     f"{Fore.RED+Style.BRIGHT}Isn't Started{Style.RESET_ALL}"
                                     f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                                 )
-
+                            time.sleep(3)
                             tasks = self.get_tasks(token)
 
                         if task['status'] == 'done':
@@ -408,12 +413,14 @@ class VooiApp:
                                     f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
                                     f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                                 )
+                            time.sleep(3)
                 else:
                     self.log(
                         f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
                         f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
                         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                     )
+                time.sleep(3)
 
                 if tap_tap:
                     if choose == 1:
@@ -426,7 +433,7 @@ class VooiApp:
                         if not start:
                             self.log(
                                 f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT} Isn't Started {Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT} Is Interrupted {Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                             )
                         
@@ -468,6 +475,7 @@ class VooiApp:
                                 f"{Fore.RED+Style.BRIGHT} Isn't Completed {Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                             )
+                        time.sleep(3)
 
                     else:
                         for game in itertools.count(1):
@@ -482,7 +490,7 @@ class VooiApp:
                                 self.log(
                                     f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
                                     f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT}Failed to Start{Style.RESET_ALL}"
+                                    f"{Fore.RED+Style.BRIGHT}Is Interrupted{Style.RESET_ALL}"
                                     f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                                 )
                                 continue
@@ -537,7 +545,7 @@ class VooiApp:
                                 end="\r",
                                 flush=True
                             )
-                            time.sleep(1.5)
+                            time.sleep(3)
                 else:
                     self.log(
                         f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
@@ -566,15 +574,16 @@ class VooiApp:
                     f"{Fore.GREEN + Style.BRIGHT}Account's Total: {Style.RESET_ALL}"
                     f"{Fore.WHITE + Style.BRIGHT}{len(queries)}{Style.RESET_ALL}"
                 )
-                self.log(f"{Fore.CYAN + Style.BRIGHT}-------------------------------------------------------------------------{Style.RESET_ALL}")
+                self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
                 for query in queries:
                     query = query.strip()
                     if query:
                         self.process_query(query, tap_tap, choose)
-                        self.log(f"{Fore.CYAN+Style.BRIGHT}-------------------------------------------------------------------------{Style.RESET_ALL}")
+                        self.log(f"{Fore.CYAN+Style.BRIGHT}-{Style.RESET_ALL}"*75)
+                        time.sleep(3)
 
-                seconds = 3
+                seconds = 5
                 while seconds > 0:
                     formatted_time = self.format_seconds(seconds)
                     print(
