@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 import time
 from colorama import *
 import pytz
-from requests.exceptions import RequestException
 
 wib = pytz.timezone('Asia/Jakarta')
 
@@ -54,7 +53,7 @@ class VooiApp:
         minutes, seconds = divmod(remainder, 60)
         return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
 
-    def login(self, query: str):
+    def auth_login(self, query: str):
         url = 'https://api-tg.vooi.io/api/v2/auth/login'
         data = json.dumps({'initData': query})
         self.headers.update({
@@ -62,10 +61,8 @@ class VooiApp:
         })
 
         response = self.scraper.post(url, headers=self.headers, data=data)
-        result = response.json()
         if response.status_code == 201:
-            token  = result['tokens']['access_token']
-            return result, token
+            return response.json()
         else:
             return None
         
@@ -236,113 +233,140 @@ class VooiApp:
         return tap_tap, None
         
     def process_query(self, query: str, tap_tap: bool, choose: int):
-        try:
-            data, token = self.login(query)
-            if data:
-                money = float(data['balances']['virt_money'])
-                points = float(data['balances']['virt_points'])
+
+        account = self.auth_login(query)
+        if not account:
+            self.log(
+                f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                f"{Fore.RED + Style.BRIGHT} Query ID Isn't Valid {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}or{Style.RESET_ALL}"
+                f"{Fore.YELLOW + Style.BRIGHT} Blocked By Cloudflare {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} [ Restart Again ] {Style.RESET_ALL}"
+            )
+            return
+        
+        if account:
+            token = account['tokens']['access_token']
+            if not token:
                 self.log(
-                    f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {data['name']} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA+Style.BRIGHT}] [ Money{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {money:.2f} Virtual USD {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA+Style.BRIGHT}] [ Points{Style.RESET_ALL}"
-                    f"{Fore.WHITE+Style.BRIGHT} {points:.2f} VT {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                    f"{Fore.RED + Style.BRIGHT} Token Is None {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
                 )
-                time.sleep(3)
+                return
+            
+            money = float(account['balances']['virt_money'])
+            points = float(account['balances']['virt_points'])
+            self.log(
+                f"{Fore.MAGENTA+Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {account['name']} {Style.RESET_ALL}"
+                f"{Fore.MAGENTA+Style.BRIGHT}] [ Money{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {money:.2f} Virtual USD {Style.RESET_ALL}"
+                f"{Fore.MAGENTA+Style.BRIGHT}] [ Points{Style.RESET_ALL}"
+                f"{Fore.WHITE+Style.BRIGHT} {points:.2f} VT {Style.RESET_ALL}"
+                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+            )
+            time.sleep(3)
 
-                frens = self.check_frens(token)
-                if frens:
-                    now = datetime.utcnow().replace(tzinfo=timezone.utc)
-                    next_claim = datetime.fromisoformat(frens['nextDateToClaim'].replace("Z", "+00:00"))
-                    next_claim_wib = next_claim.astimezone(wib).strftime('%x %X %Z')
+            frens = self.check_frens(token)
+            if frens:
+                now = datetime.utcnow().replace(tzinfo=timezone.utc)
+                next_claim = datetime.fromisoformat(frens['nextDateToClaim'].replace("Z", "+00:00"))
+                next_claim_wib = next_claim.astimezone(wib).strftime('%x %X %Z')
 
-                    reward = float(frens['totalProfit'])
-                    if reward > 0:
-                        if now > next_claim:
-                            claim = self.claim_frens(token)
-                            if claim:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                                    f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {reward} VT {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                                )
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                                )
+                reward = float(frens['totalProfit'])
+                if reward > 0:
+                    if now > next_claim:
+                        claim = self.claim_frens(token)
+                        if claim:
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {reward} VT {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                            )
                         else:
                             self.log(
                                 f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                                f"{Fore.YELLOW+Style.BRIGHT} Not Time to Claim {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Claim at{Style.RESET_ALL}"
-                                f"{Fore.WHITE+Style.BRIGHT} {next_claim_wib} {Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                             )
                     else:
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT} No Profit to Claim {Style.RESET_ALL}"
+                            f"{Fore.YELLOW+Style.BRIGHT} Not Time to Claim {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}] [ Claim at{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {next_claim_wib} {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
                 else:
                     self.log(
                         f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT} No Profit to Claim {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
+            else:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Frens{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+            time.sleep(3)
+
+            autotrade = self.check_autotrade(token)
+            if not autotrade:
+                start = self.start_autotrade(token)
+                if start and start['status'] == "in_progress":
+                    end_time = start['endTime']
+                    utc_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                    wib_time = utc_time.astimezone(wib).strftime('%x %X %Z')
+                    self.log(
+                        f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
+                        f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA+Style.BRIGHT}] [ Claim at{Style.RESET_ALL}"
+                        f"{Fore.WHITE+Style.BRIGHT} {wib_time} {Style.RESET_ALL}"
                         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                     )
                 time.sleep(3)
-
                 autotrade = self.check_autotrade(token)
-                if not autotrade:
-                    start = self.start_autotrade(token)
-                    if start:
+
+            if autotrade:
+                end_time = autotrade['endTime']
+                utc_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                wib_time = utc_time.astimezone(wib).strftime('%x %X %Z')
+                
+                autotrade_id = autotrade.get('autoTradeId', None)
+                status = autotrade['status']
+                
+                if status == 'finished':
+                    claim = self.claim_autotrade(token, autotrade_id)
+                    if claim:
+                        money_reward = claim['reward']['virtMoney']
+                        vt_reward = claim['reward']['virtPoints']
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
-                            f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
-                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                        )
-                    time.sleep(3)
-                    autotrade = self.check_autotrade(token)
-
-                if autotrade:
-                    end_time = autotrade['endTime']
-                    utc_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                    wib_time = utc_time.astimezone(wib).strftime('%x %X %Z')
-                    
-                    autotrade_id = autotrade.get('autoTradeId', None)
-
-                    if autotrade['status'] == 'finished' and autotrade_id:
-                        claim = self.claim_autotrade(token, autotrade_id)
-                        if claim:
-                            self.log(
-                            f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
                             f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
-                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                        )
-                        else:
-                            self.log(
-                            f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
-                            f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {money_reward} Virtual USD {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {vt_reward} VT {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
                     else:
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
-                            f"{Fore.YELLOW+Style.BRIGHT} Not Time to Claim {Style.RESET_ALL}"
-                            f"{Fore.MAGENTA+Style.BRIGHT}] [ Claim at{Style.RESET_ALL}"
-                            f"{Fore.WHITE+Style.BRIGHT} {wib_time} {Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT} Isn't Claimed {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
                     time.sleep(3)
 
                     start = self.start_autotrade(token)
-                    if start:
+                    if start and start['status'] == "in_progress":
+                        end_time = start['endTime']
+                        utc_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                        wib_time = utc_time.astimezone(wib).strftime('%x %X %Z')
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
                             f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
@@ -357,90 +381,178 @@ class VooiApp:
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
                     time.sleep(3)
-
-                tasks = self.get_tasks(token)
-                if tasks:
-                    for task in tasks:
-                        task_id = task['id']
-
-                        if task['status'] == 'new':
-                            start = self.start_tasks(token, task_id)
-                            if start:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
-                                    f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT}Isn't Started{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-                            time.sleep(3)
-                            tasks = self.get_tasks(token)
-
-                        if task['status'] == 'done':
-                            claim = self.claim_tasks(token, task_id)
-                            if claim and 'claimed' in claim:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
-                                    f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Reward{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {claim['claimed']['virt_money']} Virtual USD {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {claim['claimed']['virt_points']} VT {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-                            time.sleep(3)
+                
+                elif status == "claimed":
+                    start = self.start_autotrade(token)
+                    if start and start['status'] == "in_progress":
+                        end_time = start['endTime']
+                        utc_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                        wib_time = utc_time.astimezone(wib).strftime('%x %X %Z')
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}] [ Claim at{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {wib_time} {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                        )
+                    else:
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
+                            f"{Fore.YELLOW+Style.BRIGHT} Is Already Started {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                        )
+                    time.sleep(3)
+                
                 else:
                     self.log(
-                        f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
-                        f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA+Style.BRIGHT}[ Autotrade{Style.RESET_ALL}"
+                        f"{Fore.YELLOW+Style.BRIGHT} Not Time to Claim {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA+Style.BRIGHT}] [ Claim at{Style.RESET_ALL}"
+                        f"{Fore.WHITE+Style.BRIGHT} {wib_time} {Style.RESET_ALL}"
                         f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                     )
                 time.sleep(3)
 
-                if tap_tap:
-                    if choose == 1:
+            tasks = self.get_tasks(token)
+            if tasks:
+                for task in tasks:
+                    task_id = task['id']
+
+                    if task['status'] == 'new':
+                        start = self.start_tasks(token, task_id)
+                        if start:
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                        else:
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT}Isn't Started{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                        time.sleep(3)
+                        tasks = self.get_tasks(token)
+
+                    if task['status'] == 'done':
+                        claim = self.claim_tasks(token, task_id)
+                        if claim and 'claimed' in claim:
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT} Is Claimed {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Reward{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {claim['claimed']['virt_money']} Virtual USD {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {claim['claimed']['virt_points']} VT {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                        else:
+                            self.log(
+                                f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['name'].upper()} {Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT}-{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {task['description']} {Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT}Isn't Claimed{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                        time.sleep(3)
+            else:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Task{Style.RESET_ALL}"
+                    f"{Fore.RED+Style.BRIGHT} is None {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+            time.sleep(3)
+
+            if tap_tap:
+                if choose == 1:
+                    self.log(
+                        f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
+                        f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
+                    start = self.start_tapping(token)
+                    if not start:
                         self.log(
                             f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                            f"{Fore.GREEN+Style.BRIGHT} Is Started {Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT} Is Interrupted {Style.RESET_ALL}"
                             f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
                         )
-                        start = self.start_tapping(token)
-                        if not start:
+                    
+                    session_id = start['sessionId']
+
+                    money_limit = int(start['config']['virtMoneyLimit'])
+                    points_limit = int(start['config']['virtPointsLimit'])
+
+                    money = random.randint(max(1, int(money_limit * 0.5)), int(money_limit * 0.8))
+                    money -= money % 1
+
+                    points = points_limit if points_limit > 0 else 0
+
+                    print(
+                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} 30 Seconds {Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT}]{Style.RESET_ALL}",
+                        end="\r",
+                        flush=True
+                    )
+                    time.sleep(30)
+
+                    finish = self.finish_tapping(token, session_id, money, points)
+                    if finish:
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT} Is Completed {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {finish['tapped']['virtMoney']} Virtual USD {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {finish['tapped']['virtPoints']} VT {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                        )
+                    else:
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
+                            f"{Fore.RED+Style.BRIGHT} Isn't Completed {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                        )
+
+                else:
+                    for game in itertools.count(1):
+                        self.log(
+                            f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
+                            f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
+                            f"{Fore.GREEN+Style.BRIGHT}Started{Style.RESET_ALL}"
+                            f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
+                        )
+                        session_data = self.start_tapping(token)
+                        if not session_data:
                             self.log(
                                 f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT} Is Interrupted {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT}Is Interrupted{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                             )
+                            continue
                         
-                        session_id = start['sessionId']
+                        session_id = session_data['sessionId']
 
-                        money_limit = int(start['config']['virtMoneyLimit'])
-                        points_limit = int(start['config']['virtPointsLimit'])
+                        money_limit = int(session_data['config']['virtMoneyLimit'])
+                        points_limit = int(session_data['config']['virtPointsLimit'])
 
                         money = random.randint(max(1, int(money_limit * 0.5)), int(money_limit * 0.8))
                         money -= money % 1
@@ -462,8 +574,9 @@ class VooiApp:
                         if finish:
                             self.log(
                                 f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                f"{Fore.GREEN+Style.BRIGHT} Is Completed {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}] [ Reward{Style.RESET_ALL}"
+                                f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
+                                f"{Fore.GREEN+Style.BRIGHT}Completed{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
                                 f"{Fore.WHITE+Style.BRIGHT} {finish['tapped']['virtMoney']} Virtual USD {Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
                                 f"{Fore.WHITE+Style.BRIGHT} {finish['tapped']['virtPoints']} VT {Style.RESET_ALL}"
@@ -472,91 +585,27 @@ class VooiApp:
                         else:
                             self.log(
                                 f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                f"{Fore.RED+Style.BRIGHT} Isn't Completed {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                            )
-
-                    else:
-                        for game in itertools.count(1):
-                            self.log(
-                                f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
                                 f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
-                                f"{Fore.GREEN+Style.BRIGHT}Started{Style.RESET_ALL}"
+                                f"{Fore.RED+Style.BRIGHT}Not Completed{Style.RESET_ALL}"
                                 f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
                             )
-                            session_data = self.start_tapping(token)
-                            if not session_data:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT}Is Interrupted{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-                                continue
-                            
-                            session_id = session_data['sessionId']
 
-                            money_limit = int(session_data['config']['virtMoneyLimit'])
-                            points_limit = int(session_data['config']['virtPointsLimit'])
-
-                            money = random.randint(max(1, int(money_limit * 0.5)), int(money_limit * 0.8))
-                            money -= money % 1
-
-                            points = points_limit if points_limit > 0 else 0
-
-                            print(
-                                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                                f"{Fore.YELLOW + Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
-                                f"{Fore.WHITE + Style.BRIGHT} 30 Seconds {Style.RESET_ALL}"
-                                f"{Fore.YELLOW + Style.BRIGHT}]{Style.RESET_ALL}",
-                                end="\r",
-                                flush=True
-                            )
-                            time.sleep(30)
-
-                            finish = self.finish_tapping(token, session_id, money, points)
-                            if finish:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
-                                    f"{Fore.GREEN+Style.BRIGHT}Completed{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ] [ Reward{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {finish['tapped']['virtMoney']} Virtual USD {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}|{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {finish['tapped']['virtPoints']} VT {Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                                )
-                            else:
-                                self.log(
-                                    f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                    f"{Fore.WHITE+Style.BRIGHT} {game} {Style.RESET_ALL}"
-                                    f"{Fore.RED+Style.BRIGHT}Not Completed{Style.RESET_ALL}"
-                                    f"{Fore.MAGENTA+Style.BRIGHT} ]{Style.RESET_ALL}"
-                                )
-
-                            print(
-                                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA + Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                                f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}"
-                                f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}",
-                                end="\r",
-                                flush=True
-                            )
-                            time.sleep(3)
-                else:
-                    self.log(
-                        f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
-                        f"{Fore.YELLOW+Style.BRIGHT} Is Skipped {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
-                    )
-
-        except RequestException as e:
-            self.log(
-                f"{Fore.RED + Style.BRIGHT}[ Blocked By Cloudflare ]{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT}[ Restart First ]{Style.RESET_ALL}"
-            )
+                        print(
+                            f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA + Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
+                            f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}",
+                            end="\r",
+                            flush=True
+                        )
+                        time.sleep(3)
+            else:
+                self.log(
+                    f"{Fore.MAGENTA+Style.BRIGHT}[ Play Game{Style.RESET_ALL}"
+                    f"{Fore.YELLOW+Style.BRIGHT} Is Skipped {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA+Style.BRIGHT}]{Style.RESET_ALL}"
+                )
 
     def main(self):
         try:
