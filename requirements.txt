@@ -1,4 +1,5 @@
 cloudscraper
 requests
+fake-useragent
 colorama
 pytz
